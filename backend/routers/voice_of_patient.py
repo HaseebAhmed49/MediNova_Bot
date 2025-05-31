@@ -1,16 +1,21 @@
-# if you dont use pipenv uncomment the following:
-# from dotenv import load_dotenv
-# load_dotenv()
-
-#Step1: Setup Audio recorder (ffmpeg & portaudio)
-# ffmpeg, portaudio, pyaudio
+from fastapi import APIRouter
 import logging
 import speech_recognition as sr
 from pydub import AudioSegment
 from io import BytesIO
+import os
+from groq import Groq
+
+router = APIRouter()
+GROQ_API_KEY=os.environ.get("GROQ_API_KEY")
+stt_model="whisper-large-v3"
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+#Step1: Setup Audio recorder (ffmpeg & portaudio)
+# ffmpeg, portaudio, pyaudio
+
+@router.post("/record_audio")
 def record_audio(file_path, timeout=20, phrase_time_limit=None):
     """
     Simplified function to record audio from the microphone and save it as an MP3 file.
@@ -42,16 +47,9 @@ def record_audio(file_path, timeout=20, phrase_time_limit=None):
     except Exception as e:
         logging.error(f"An error occurred: {e}")
 
-audio_filepath="patient_voice_test_for_patient.mp3"
-#record_audio(file_path=audio_filepath)
 
 #Step2: Setup Speech to text–STT–model for transcription
-import os
-from groq import Groq
-
-GROQ_API_KEY=os.environ.get("GROQ_API_KEY")
-stt_model="whisper-large-v3"
-
+@router.post("/transcribe_audio")
 def transcribe_with_groq(stt_model, audio_filepath, GROQ_API_KEY):
     client=Groq(api_key=GROQ_API_KEY)
     

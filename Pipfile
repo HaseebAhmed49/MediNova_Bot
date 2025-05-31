@@ -11,6 +11,8 @@ pyaudio = "*"
 gtts = "*"
 elevenlabs = "*"
 gradio = "*"
+fastapi = "*"
+uvicorn = "*"
 
 [dev-packages]
 
