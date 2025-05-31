@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 #Step1: Setup Audio recorder (ffmpeg & portaudio)
 # ffmpeg, portaudio, pyaudio
 
-@router.post("/record_audio")
+@router.get("/record_audio")
 def record_audio(file_path, timeout=20, phrase_time_limit=None):
     """
     Simplified function to record audio from the microphone and save it as an MP3 file.
@@ -49,7 +49,7 @@ def record_audio(file_path, timeout=20, phrase_time_limit=None):
 
 
 #Step2: Setup Speech to text–STT–model for transcription
-@router.post("/transcribe_audio")
+@router.get("/transcribe_audio")
 def transcribe_with_groq(stt_model, audio_filepath, GROQ_API_KEY):
     client=Groq(api_key=GROQ_API_KEY)
     
@@ -59,5 +59,4 @@ def transcribe_with_groq(stt_model, audio_filepath, GROQ_API_KEY):
         file=audio_file,
         language="en"
     )
-
     return transcription.text

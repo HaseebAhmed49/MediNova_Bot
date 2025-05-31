@@ -1,3 +1,7 @@
 .DS_Store
 .env
 *.mp3
+/.gradio
+backend/__pycache__/
+backend/routers/__pycache__/
+

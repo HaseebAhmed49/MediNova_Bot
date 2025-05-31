@@ -15,24 +15,25 @@ system_prompt="""You have to act as a professional doctor, i know you are not bu
             Keep your answer concise (max 2 sentences). No preamble, start your answer right away please"""
 
 def gradio_transcribe(audio_filepath, stt_model, GROQ_API_KEY):
-    response = requests.get(
-        "http://localhost:8000/transcribe_audio",
+    response = requests.get(f"{API_BASE_URL}/voice_of_patient/transcribe_audio",
         params={
             "stt_model": stt_model,
-            "audio_filepath": audio_filepath.name,
+            "audio_filepath": audio_filepath,
             "GROQ_API_KEY": GROQ_API_KEY
         }
     )
     return response.text
 
-def analyze_image(query, model, image):
-    if image is None:
+def analyze_image(query, model, image_path):
+    if image_path is None:
         return "Please upload an image."
 
     # Step 1: Send image to /encode_image
-    with open(image.name, "rb") as f:
-        files = {"image": f}
-        res = requests.post(f"{API_BASE_URL}/encode_image", files=files)
+    res = requests.get(f"{API_BASE_URL}/brain_of_the_assistant/encode_image", 
+        params={
+            "image_path": image_path
+        }
+    )
 
     if res.status_code != 200:
         return f"Error encoding image: {res.text}"
@@ -40,9 +41,9 @@ def analyze_image(query, model, image):
     encoded_image = res.json()["encoded_image"]
 
     # Step 2: Send query, model, and encoded image to /analyze_image_with_query
-    res2 = requests.post(
-        f"{API_BASE_URL}/analyze_image_with_query",
-        json={"query": query, "model": model, "encoded_image": encoded_image}
+    res2 = requests.get(
+        f"{API_BASE_URL}/brain_of_the_assistant/analyze_image_with_query",
+        params={"query": query, "model": model, "encoded_image": encoded_image}
     )
 
     if res2.status_code == 200:
@@ -50,16 +51,14 @@ def analyze_image(query, model, image):
     else:
         return f"Error analyzing image: {res2.text}"
 
-FASTAPI_URL = "http://localhost:8000/text_to_speech_elevenlabs"
 def call_elevenlabs_tts(input_text):
     output_filepath = "output.mp3"  # Local save location
 
-    payload = {
+    response = requests.get(f"{API_BASE_URL}/voice_of_doctor/text_to_speech_elevenlabs", params={
         "input_text": input_text,
         "output_filepath": output_filepath
-    }
-
-    response = requests.post(FASTAPI_URL, params=payload)
+        }
+    )
 
     if response.status_code == 200:
         return output_filepath
@@ -67,20 +66,19 @@ def call_elevenlabs_tts(input_text):
         return f"Error: {response.text}"
 
 def process_inputs(audio_filepath, image_filepath):
-    speech_to_text_output = gradio_transcribe(GROQ_API_KEY=os.environ.get("GROQ_API_KEY"), 
-                                                 audio_filepath=audio_filepath,
-                                                 stt_model="whisper-large-v3")
-
-    # Handle the image input
-    if image_filepath:
-        doctor_response = analyze_image(query=system_prompt+speech_to_text_output, image=image_filepath, model="meta-llama/llama-4-scout-17b-16e-instruct")
-    else:
-        doctor_response = "No image provided for me to analyze"
-
-    voice_of_doctor = call_elevenlabs_tts(input_text=doctor_response) 
-
+    speech_to_text_output = gradio_transcribe(
+        GROQ_API_KEY=os.environ.get("GROQ_API_KEY"), 
+        audio_filepath=audio_filepath,
+        stt_model="whisper-large-v3"
+        )    
+    doctor_response = analyze_image(
+        query=system_prompt+speech_to_text_output, 
+        image_path=image_filepath, 
+        model="meta-llama/llama-4-scout-17b-16e-instruct"
+        )
+    voice_of_doctor = call_elevenlabs_tts(input_text=doctor_response)
     return speech_to_text_output, doctor_response, voice_of_doctor
-
+    # return speech_to_text_output, doctor_response
 
 # Create the interface
 iface = gr.Interface(
@@ -98,5 +96,3 @@ iface = gr.Interface(
 )
 
 iface.launch(debug=True)
-
-#http://127.0.0.1:7860

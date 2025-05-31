@@ -23,7 +23,7 @@ def play_audio(output_filepath: str):
     except Exception as e:
         print(f"An error occurred while trying to play the audio: {e}")
 
-@router.post("/text_to_speech_gtts")
+@router.get("/text_to_speech_gtts")
 def text_to_speech_with_gtts(input_text, output_filepath):
     language="en"
 
@@ -36,7 +36,7 @@ def text_to_speech_with_gtts(input_text, output_filepath):
     play_audio(output_filepath)
     return {"status": "success", "method": "gTTS"}
 
-@router.post("/text_to_speech_elevenlabs")
+@router.get("/text_to_speech_elevenlabs")
 def text_to_speech_with_elevenlabs(input_text, output_filepath):
     client=ElevenLabs(api_key=ELEVENLABS_API_KEY)
     audio=client.text_to_speech.convert(

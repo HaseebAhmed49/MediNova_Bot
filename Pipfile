@@ -13,6 +13,9 @@ elevenlabs = "*"
 gradio = "*"
 fastapi = "*"
 uvicorn = "*"
+databases = "*"
+passlib = "*"
+sqlalchemy = "*"
 
 [dev-packages]
 
