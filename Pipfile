@@ -16,6 +16,9 @@ uvicorn = "*"
 databases = "*"
 passlib = "*"
 sqlalchemy = "*"
+psycopg2 = "*"
+bcrypt = "*"
+pyjwt = "*"
 
 [dev-packages]
 
