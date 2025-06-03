@@ -14,6 +14,24 @@ system_prompt="""You have to act as a professional doctor, i know you are not bu
             Dont respond as an AI model in markdown, your answer should mimic that of an actual doctor not an AI bot, 
             Keep your answer concise (max 2 sentences). No preamble, start your answer right away please"""
 
+# Login function
+def login(username, password):
+    print(f"Attempting to log in with username: {username} and password: {password}")
+    response = requests.post("http://localhost:8000/auth/login", data={"username": username, "password": password})
+    if response.status_code == 200:
+        token = response.json().get("access_token")
+        return f"Login successful! Token: {token}"
+    else:
+        return f"Error: {response.json().get('detail', 'Login failed')}"
+
+# Register function
+def register(username, password):
+    response = requests.post(f"{API_BASE_URL}/auth/register", data={"username": username, "password": password})
+    if response.status_code == 200:
+        return "Registration successful!"
+    else:
+        return f"Error: {response.json().get('detail', 'Registration failed')}"
+
 def gradio_transcribe(audio_filepath, stt_model, GROQ_API_KEY):
     response = requests.get(f"{API_BASE_URL}/voice_of_patient/transcribe_audio",
         params={
@@ -80,8 +98,32 @@ def process_inputs(audio_filepath, image_filepath):
     return speech_to_text_output, doctor_response, voice_of_doctor
     # return speech_to_text_output, doctor_response
 
-# Create the interface
-iface = gr.Interface(
+# Create the interfaces
+login_interface = gr.Interface(
+    fn=login,
+    inputs=[
+        gr.Textbox(label="Username"),
+        gr.Textbox(label="Password", type="password")  # Corrected password input
+    ],
+    outputs=[
+        gr.Textbox(label="Login Status")
+    ],
+    title="Login"
+)
+
+register_interface = gr.Interface(
+    fn=register,
+    inputs=[
+        gr.Textbox(label="Username"),
+        gr.Textbox(label="Password", type="password")  # Corrected password input
+    ],
+    outputs=[
+        gr.Textbox(label="Registration Status")
+    ],
+    title="Register"
+)
+
+main_interface = gr.Interface(
     fn=process_inputs,
     inputs=[
         gr.Audio(sources=["microphone"], type="filepath"),
@@ -95,4 +137,10 @@ iface = gr.Interface(
     title="AI Doctor with Vision and Voice"
 )
 
-iface.launch(debug=True)
+# Combine interfaces into a tabbed layout
+app = gr.TabbedInterface(
+    interface_list=[login_interface, register_interface, main_interface],
+    tab_names=["Login", "Register", "AI Doctor"]
+)
+
+app.launch(debug=True)
