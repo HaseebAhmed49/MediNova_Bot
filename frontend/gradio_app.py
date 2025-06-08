@@ -6,6 +6,9 @@ import gradio as gr
 
 API_BASE_URL = "http://localhost:8000"  # Replace with your actual backend URL if deployed
 
+# Global variable to store the token
+user_token = None
+
 system_prompt="""You have to act as a professional doctor, i know you are not but this is for learning purpose. 
             What's in this image?. Do you find anything wrong with it medically? 
             If you make a differential, suggest some remedies for them. Donot add any numbers or special characters in 
@@ -16,13 +19,13 @@ system_prompt="""You have to act as a professional doctor, i know you are not bu
 
 # Login function
 def login(username, password):
-    print(f"Attempting to log in with username: {username} and password: {password}")
-    response = requests.post("http://localhost:8000/auth/login", data={"username": username, "password": password})
+    global user_token
+    response = requests.post(f"{API_BASE_URL}/auth/login", data={"username": username, "password": password})
     if response.status_code == 200:
-        token = response.json().get("access_token")
-        return f"Login successful! Token: {token}"
+        user_token = response.json().get("access_token")
+        return f"Login successful! Navigating to AI Doctor...", gr.update(selected="AI Doctor")
     else:
-        return f"Error: {response.json().get('detail', 'Login failed')}"
+        return f"Error: {response.json().get('detail', 'Login failed')}", gr.update(selected="Login")
 
 # Register function
 def register(username, password):
@@ -82,21 +85,35 @@ def call_elevenlabs_tts(input_text):
         return output_filepath
     else:
         return f"Error: {response.text}"
-
-def process_inputs(audio_filepath, image_filepath):
-    speech_to_text_output = gradio_transcribe(
-        GROQ_API_KEY=os.environ.get("GROQ_API_KEY"), 
-        audio_filepath=audio_filepath,
-        stt_model="whisper-large-v3"
-        )    
-    doctor_response = analyze_image(
-        query=system_prompt+speech_to_text_output, 
-        image_path=image_filepath, 
-        model="meta-llama/llama-4-scout-17b-16e-instruct"
-        )
+    
+def access_denied():
+    speech_to_text_output = "Access Denied"
+    doctor_response = "Apologies, I cant suggest you. Please register or login into the software .You need to log in to access AI Doctor."
     voice_of_doctor = call_elevenlabs_tts(input_text=doctor_response)
     return speech_to_text_output, doctor_response, voice_of_doctor
-    # return speech_to_text_output, doctor_response
+
+def process_inputs(audio_filepath, image_filepath):
+    if not user_token:
+        return access_denied()
+
+    # Add token to headers for authenticated requests
+    headers = {"Authorization": f"Bearer {user_token}"}
+    response = requests.get(f"{API_BASE_URL}/auth/ai_doctor", headers=headers)
+    if response.status_code == 200:
+        speech_to_text_output = gradio_transcribe(
+            GROQ_API_KEY=os.environ.get("GROQ_API_KEY"),
+            audio_filepath=audio_filepath,
+            stt_model="whisper-large-v3"
+        )
+        doctor_response = analyze_image(
+            query=system_prompt+speech_to_text_output, 
+            image_path=image_filepath, 
+            model="meta-llama/llama-4-scout-17b-16e-instruct"
+        )
+        voice_of_doctor = call_elevenlabs_tts(input_text=doctor_response)
+        return speech_to_text_output, doctor_response, voice_of_doctor
+    else:
+        return access_denied()
 
 # Create the interfaces
 login_interface = gr.Interface(
