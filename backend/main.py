@@ -1,7 +1,7 @@
 from fastapi import FastAPI
-from backend.routers import brain_of_the_assistant, voice_of_doctor, voice_of_patient
+from routers import brain_of_the_assistant, voice_of_doctor, voice_of_patient
 from fastapi.middleware.cors import CORSMiddleware
-from backend.routers import users
+from routers import users
 
 app = FastAPI()
 

@@ -23,15 +23,27 @@ def login(username, password):
     response = requests.post(f"{API_BASE_URL}/auth/login", data={"username": username, "password": password})
     if response.status_code == 200:
         user_token = response.json().get("access_token")
-        return f"Login successful! Navigating to AI Doctor...", gr.update(selected="AI Doctor")
+        return "Login successful! You can now access the AI Doctor tab.", gr.update(visible=True)
     else:
-        return f"Error: {response.json().get('detail', 'Login failed')}", gr.update(selected="Login")
+        return f"Error: {response.json().get('detail', 'Login failed')}", gr.update(visible=False)
+
+# Logout function
+def logout():
+    global user_token
+    user_token = None
+    return (
+        gr.update(visible=False),  # Hide logout button
+        gr.update(value=""),       # Clear login username
+        gr.update(value=""),       # Clear login password
+        gr.update(value="You have been logged out successfully. Please login again to access AI Doctor."),  # Login status
+        gr.update(selected="login_tab")  # Switch to login tab
+    )
 
 # Register function
 def register(username, password):
     response = requests.post(f"{API_BASE_URL}/auth/register", data={"username": username, "password": password})
     if response.status_code == 200:
-        return "Registration successful!"
+        return "Registration successful! Please login to access AI Doctor."
     else:
         return f"Error: {response.json().get('detail', 'Registration failed')}"
 
@@ -88,7 +100,7 @@ def call_elevenlabs_tts(input_text):
     
 def access_denied():
     speech_to_text_output = "Access Denied"
-    doctor_response = "Apologies, I cant suggest you. Please register or login into the software .You need to log in to access AI Doctor."
+    doctor_response = "Apologies, I cant suggest you. Please register or login into the software. You need to log in to access AI Doctor."
     voice_of_doctor = call_elevenlabs_tts(input_text=doctor_response)
     return speech_to_text_output, doctor_response, voice_of_doctor
 
@@ -115,49 +127,75 @@ def process_inputs(audio_filepath, image_filepath):
     else:
         return access_denied()
 
-# Create the interfaces
-login_interface = gr.Interface(
-    fn=login,
-    inputs=[
-        gr.Textbox(label="Username"),
-        gr.Textbox(label="Password", type="password")  # Corrected password input
-    ],
-    outputs=[
-        gr.Textbox(label="Login Status")
-    ],
-    title="Login"
-)
+# Create the Gradio Blocks interface for better control
+with gr.Blocks(title="AI Doctor Application") as app:
+    # Header with title and logout button
+    with gr.Row():
+        with gr.Column(scale=4):
+            gr.Markdown("# AI Doctor Application")
+        with gr.Column(scale=1, min_width=120):
+            logout_btn = gr.Button("Logout", variant="secondary", visible=False, size="sm")
+    
+    with gr.Tabs() as tabs:
+        with gr.Tab("Login", id="login_tab"):
+            gr.Markdown("## Login to Access AI Doctor")
+            with gr.Column():
+                login_username = gr.Textbox(label="Username", placeholder="Enter your username")
+                login_password = gr.Textbox(label="Password", type="password", placeholder="Enter your password")
+                login_btn = gr.Button("Login", variant="primary")
+                login_status = gr.Textbox(label="Login Status", interactive=False)
+        
+        with gr.Tab("Register", id="register_tab"):
+            gr.Markdown("## Register New Account")
+            with gr.Column():
+                reg_username = gr.Textbox(label="Username", placeholder="Choose a username")
+                reg_password = gr.Textbox(label="Password", type="password", placeholder="Choose a password")
+                register_btn = gr.Button("Register", variant="primary")
+                register_status = gr.Textbox(label="Registration Status", interactive=False)
+        
+        with gr.Tab("AI Doctor", id="doctor_tab"):
+            gr.Markdown("## AI Doctor with Vision and Voice")
+            
+            # Check login status for AI Doctor tab
+            with gr.Column():
+                login_check = gr.Markdown("*Please login first to use this feature*")
+            
+            with gr.Row():
+                with gr.Column():
+                    audio_input = gr.Audio(sources=["microphone"], type="filepath", label="Record Your Voice")
+                    image_input = gr.Image(type="filepath", label="Upload Medical Image")
+                    process_btn = gr.Button("Analyze", variant="primary", size="lg")
+                
+                with gr.Column():
+                    speech_output = gr.Textbox(label="Speech to Text", lines=3)
+                    doctor_output = gr.Textbox(label="Doctor's Response", lines=5)
+                    audio_output = gr.Audio(label="Doctor's Voice Response")
+    
+    # Event handlers
+    login_btn.click(
+        fn=login,
+        inputs=[login_username, login_password],
+        outputs=[login_status, logout_btn]
+    )
+    
+    logout_btn.click(
+        fn=logout,
+        inputs=[],
+        outputs=[logout_btn, login_username, login_password, login_status, tabs]
+    )
+    
+    register_btn.click(
+        fn=register,
+        inputs=[reg_username, reg_password],
+        outputs=[register_status]
+    )
+    
+    process_btn.click(
+        fn=process_inputs,
+        inputs=[audio_input, image_input],
+        outputs=[speech_output, doctor_output, audio_output]
+    )
 
-register_interface = gr.Interface(
-    fn=register,
-    inputs=[
-        gr.Textbox(label="Username"),
-        gr.Textbox(label="Password", type="password")  # Corrected password input
-    ],
-    outputs=[
-        gr.Textbox(label="Registration Status")
-    ],
-    title="Register"
-)
-
-main_interface = gr.Interface(
-    fn=process_inputs,
-    inputs=[
-        gr.Audio(sources=["microphone"], type="filepath"),
-        gr.Image(type="filepath")
-    ],
-    outputs=[
-        gr.Textbox(label="Speech to Text"),
-        gr.Textbox(label="Doctor's Response"),
-        gr.Audio("Temp.mp3")
-    ],
-    title="AI Doctor with Vision and Voice"
-)
-
-# Combine interfaces into a tabbed layout
-app = gr.TabbedInterface(
-    interface_list=[login_interface, register_interface, main_interface],
-    tab_names=["Login", "Register", "AI Doctor"]
-)
-
-app.launch(debug=True)
+if __name__ == "__main__":
+    print("Starting Gradio app...")
+    app.launch(debug=True)
